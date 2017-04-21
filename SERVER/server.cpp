@@ -9,72 +9,39 @@
 
 using namespace std;
 
-void send_email(char* msg) {
+void send_email(std::string msg) {
 	regex regex("(\\w+\\.?\\w+@\\w+\\.\\w+) (.+)");
-	cmatch match;
+	smatch match;
 	string string, email;
-
-	if (regex_match(msg, match, regex) && match.size() > 1) {
+	if (regex_match(msg, match, regex)) {
 		email = match.str(1);
 		string = match.str(2);
 	}
-
-	char * text = new char[string.size() + 1];
-	copy(string.begin(), string.end(), text);
-	text[string.size()] = '\0';
-	
-	char * mail = new char[email.size() + 1];
-	copy(email.begin(), email.end(), mail);
-	mail[email.size()] = '\0';
-
-	strcat(mail, ".txt");
-	strcat(text, " [false]\n");
-
+	cout << "Текущая почта\n\t[" << email << "]"<<endl;
+	email.append(".txt");
+	string.append("\n");
 	ofstream file;
-	file.open(mail, ios::app);
-	file << text;
-
+	file.open(email, ios::app);
+	file << string;
+	cout << "Файл\n\t[" << email << "]\nизменен\\создан" << endl;
 	file.close();
 }
 
-char* read_email(char* msg) {
-	regex regex("\\[false\\]");
-	smatch match;
-
-	strcat(msg, ".txt");
-
+string read_email(std::string msg) {
+	string str = "Почта [" + msg + "]:\n";
+	msg.append(".txt");
 	ifstream file(msg);
-
-	string temp[200];
-	for(int i = 0; file; i++) {
-		getline(file, temp[i]);
-		temp[i]= regex_replace(temp[i], regex, "[true]\n");
+	if (!file) cout << "Файл не существует" << endl;
+	for(int i = 0; file; i++){
+		string temp;
+		getline(file, temp);
+		str.append("\t[" + to_string(i) + "]: " + temp + "\n");
 	}
+	cout << "Все письма из файла\n\t[" << msg << "]\nпрочитаны" << endl;
+	str.append("Конец\n");
 	file.close();
 
-	fstream clear(msg, ios::out);
-	clear.close();
-	char* mail = new char[1000];
-	ofstream file_new;
-	file_new.open(msg, ios::app);
-	for (int i = 0; i < temp->length(); i++) {
-		file_new << temp[i];
-
-		char * text = new char[temp[i].size() + 1];
-		copy(temp[i].begin(), temp[i].end(), text);
-		text[temp[i].size()] = '\n';
-
-		strcat(mail, text);
-	}
-	mail[strlen (mail) + 1] = '\0';
-	
-	file_new.close();
-
-	return mail;
-	
-
-
-
+	return str;
 }
 
 DWORD WINAPI ThreadFunc(LPVOID client_socket)
@@ -83,29 +50,30 @@ DWORD WINAPI ThreadFunc(LPVOID client_socket)
 	regex regex_send("(\\w+\\.?\\w+@\\w+\\.\\w+) (.+)");
 	regex regex_read("\\w+\\.?\\w+@\\w+\\.\\w+");
 	smatch match;
-	char msg[63] = "Отправить:\tвведите почту и сообщение\nПрочитать:\tвведите почту\n";
-	char respond[200];
-	send(sock, msg, sizeof(msg), 0);
+	string msg = "Отправить:\t[введите почту и сообщение]\nПрочитать:\t[введите почту]\n";
+	char buffer[4096];
+	send(sock, msg.data(), msg.size(), 0);
 
 	while (true)
 	{
-		recv(sock, respond, sizeof(respond), 0);
 
-		string temp(respond);
-		
+		int check = recv(sock, buffer, sizeof(buffer), 0);
+		if (check <= 0) break;
+		buffer[check] = '\0';
+		string temp(buffer);
 		if (regex_search(temp, match, regex_send)) {
-			send_email(respond);
-			char success[50] = "Отправлено\n";
-			send(sock, success, sizeof(success), 0);
+			send_email(temp);
+			string success = "[Отправлено]\n";
+			send(sock, success.data(), success.length(), 0);
 		}
 		else if (regex_search(temp, match, regex_read)) {
-			
-			char* mail = read_email(respond);
-			send(sock, mail, sizeof(mail), 0);
+			string text = read_email(temp);
+			send(sock, text.data(), text.length(), 0);
+
 		}
 		else {
-			char failure[50] = "Некорректный ввод\n";
-			send(sock, failure, sizeof(failure), 0);
+			string failure = "[Некорректный ввод]\n";
+			send(sock, failure.data(), failure.length(), 0);
 		}
 	}
 	closesocket(sock);
@@ -131,15 +99,13 @@ void main()
 	bind(s, (sockaddr *)&local_addr, sizeof(local_addr));
 	int c = listen(s, 5);
 	cout << "Сервер готов" << endl;
-	// извлекаем сообщение из очереди
-	SOCKET client_socket;    // сокет для клиента
-	sockaddr_in client_addr; // адрес клиента (заполняется системой)
+	SOCKET client_socket;   
+	sockaddr_in client_addr; 
 	int client_addr_size = sizeof(client_addr);
-	// цикл извлечения запросов на подключение из очереди
 	while ((client_socket = accept(s, (sockaddr *)&client_addr, &client_addr_size)))
 	{
-		// Вызов нового потока для обслуживания клиента
-		DWORD thID;// thID идентификатор типа DWORD
+
+		DWORD thID;
 		CreateThread(NULL, NULL, ThreadFunc, &client_socket, NULL, &thID);
 	}
 }

@@ -1,6 +1,7 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <winsock2.h>
 #include <iostream>
+#include <string>
 #pragma comment(lib, "WS2_32.lib")
 
 using namespace std;
@@ -18,15 +19,20 @@ int main() {
 	peer.sin_family = AF_INET;
 	peer.sin_port = htons(1280);
 	peer.sin_addr.s_addr = inet_addr("127.0.0.1");
-	SOCKET s = socket(AF_INET, SOCK_STREAM, 0);
-	connect(s, (struct sockaddr*) &peer, sizeof(peer));
-	char b[200];
+	SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+	connect(sock, (struct sockaddr*) &peer, sizeof(peer));
+	char respond[200];
+	string reply;
+	int check = 0; 
 	while (true) {
-		recv(s, b, sizeof(b), 0);
-		cout << b;
-		b[0] = '\0';
-		cin.getline(b, 200, '\n');
-		send(s, b, sizeof(b), 0);
+		check = recv(sock, respond, sizeof(respond), 0);
+		if (check <= 0) break;
+		respond[check] = '\0';
+		cout << respond;
+		respond[0] = '\0';
+		getline(cin, reply);
+		if (reply == "exit") exit(EXIT_SUCCESS);
+		send(sock, reply.data(), reply.length(), 0);
 	}
 
 	WSACleanup();
